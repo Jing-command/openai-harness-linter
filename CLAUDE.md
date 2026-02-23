@@ -6,7 +6,7 @@
 
 - **Root Package**: `harness_linter`
 - **Version**: 0.1.0
-- **Repository**: `D:/Projects/openai-harness-linter`
+- **Repository**: `https://github.com/Jing-command/openai-harness-linter`
 
 ## Architecture
 
@@ -39,13 +39,14 @@ src/harness_linter/
 
 Projects using this linter enforce these layers (low to high index):
 
-1. **types** - Pure data types and domain models
-2. **config** - Configuration management
-3. **repo** - Data access and persistence
-4. **service** - Business logic
-5. **providers** - External service integrations
-6. **runtime** - Application runtime
-7. **ui** - User interface layer
+1. **types** - Pure data types and domain models (index 0)
+2. **config** - Configuration management (index 1)
+3. **repo** - Data access and persistence (index 2)
+4. **service** - Business logic (index 3)
+5. **runtime** - Application runtime (index 4)
+6. **ui** - User interface layer (index 5)
+
+**Note**: The `providers` system is a separate cross-cutting concern mechanism, not a layer. Providers are explicitly allowed to be used by specific layers.
 
 **Rule**: Higher-index layers can import from lower-index layers, never reverse.
 
@@ -115,7 +116,7 @@ tests/
 ├── test_providers.py      # Provider validation
 ├── test_cache.py          # Caching mechanism
 ├── test_config.py         # Configuration parsing
-├── test_cli.py            # Command-line interface
+├── test_hooks.py          # Pre-commit hook
 ├── test_hooks.py          # Pre-commit hook
 ├── test_formatters.py     # Output formatting
 ├── test_contracts_base.py # Base contract tests

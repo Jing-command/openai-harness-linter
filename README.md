@@ -33,34 +33,35 @@ cd harness-linter
 pip install -e ".[dev]"
 ```
 
-### As a Claude Code Skill (Recommended)
+### Using with Claude Code
 
-This linter is available as a Claude Code skill for automatic architecture enforcement:
-
-```bash
-# Install the skill
-claude /skill install harness-linter
-
-# Or add to your project's CLAUDE.md
-```
-
-**Available Skills:**
-
-| Skill | Description | Usage |
-|-------|-------------|-------|
-| `harness-linter:check` | Run architecture check on current project | `/check` |
-| `harness-linter:init` | Initialize linter config for a new project | `/init-project` |
-| `harness-linter:batch` | Batch check multiple projects | `/batch-check` |
-
-**Skill Configuration in CLAUDE.md:**
+This linter works well with Claude Code. Add custom commands to your project's `CLAUDE.md`:
 
 ```markdown
-## Skills
+## Commands
 
-- harness-linter:check
-  - auto_run: true
-  - on_save: true
-  - contracts: ["layer", "provider"]
+- `/check` - Run `harness-linter check` on current project
+- `/init-linter` - Initialize linter config for new project
+- `/batch-lint` - Batch check multiple projects
+
+## Commands
+
+- `/check`: Run `harness-linter check` on the current project
+- `/init-linter`: Initialize linter configuration for a new project
+- `/batch-lint`: Batch check multiple projects in a directory
+```
+
+Or use the CLI directly:
+
+```bash
+# Check current project
+harness-linter check
+
+# Initialize config for new project
+harness-linter init
+
+# Batch check multiple projects
+harness-linter batch ~/Projects
 ```
 
 ## Quick Start
