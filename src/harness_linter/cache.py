@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -84,15 +87,6 @@ class FileFingerprint:
         )
 
 
-@dataclass
-class CachedImportInfo:
-    """Cached import information for a module."""
-
-    fingerprint: FileFingerprint
-    imports: list[str]  # Modules imported by this module
-    imported_by: list[str]  # Modules that import this module
-
-
 class ImportGraphCache:
     """Import graph analysis result cache.
 
@@ -161,8 +155,16 @@ class ImportGraphCache:
             self._imported_by = data.get("imported_by", {})
 
             return True
-        except (json.JSONDecodeError, KeyError, TypeError):
-            # Invalid cache file
+        except json.JSONDecodeError as e:
+            logger.warning(f"Cache file is not valid JSON: {e}")
+            self.clear()
+            return False
+        except KeyError as e:
+            logger.warning(f"Cache file is missing required key: {e}")
+            self.clear()
+            return False
+        except TypeError as e:
+            logger.warning(f"Cache file has invalid type: {e}")
             self.clear()
             return False
 

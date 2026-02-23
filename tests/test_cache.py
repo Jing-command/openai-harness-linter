@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from harness_linter.cache import CachedImportInfo, FileFingerprint, ImportGraphCache
+from harness_linter.cache import FileFingerprint, ImportGraphCache
 
 
 class TestFileFingerprint:

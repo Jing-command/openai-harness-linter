@@ -4,15 +4,39 @@ from __future__ import annotations
 
 import ast
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import grimp
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from grimp import ImportGraph
 
     from harness_linter.cache import ImportGraphCache
+
+
+@contextmanager
+def _sys_path_context(path: str) -> Generator[None, None, None]:
+    """Context manager to temporarily add a path to sys.path.
+
+    Args:
+        path: Path to add to sys.path
+
+    Yields:
+        None
+    """
+    inserted = False
+    if path not in sys.path:
+        sys.path.insert(0, path)
+        inserted = True
+    try:
+        yield
+    finally:
+        if inserted:
+            sys.path.remove(path)
 
 
 class ImportGraphBuilder:
@@ -31,14 +55,13 @@ class ImportGraphBuilder:
             ImportGraph: The built import graph
         """
         # Add parent directory to path for grimp to find the package
-        parent_path = path.parent
-        if str(parent_path) not in sys.path:
-            sys.path.insert(0, str(parent_path))
+        parent_path = str(path.parent)
 
-        graph = grimp.build_import_graph(
-            package_names={self.root_package},
-            cache_dir=None,  # Disable grimp's cache, we use our own
-        )
+        with _sys_path_context(parent_path):
+            graph = grimp.build_import_graph(
+                package_names={self.root_package},
+                cache_dir=None,  # Disable grimp's cache, we use our own
+            )
         return graph
 
     def find_source_files(self, path: Path) -> dict[str, Path]:
@@ -133,28 +156,32 @@ class IncrementalImportGraphBuilder(ImportGraphBuilder):
         to_reanalyze = changed | affected
 
         # Add parent directory to path for grimp to find the package
-        parent_path = path.parent
-        if str(parent_path) not in sys.path:
-            sys.path.insert(0, str(parent_path))
+        parent_path = str(path.parent)
 
-        # Build graph using grimp (always builds full graph)
-        graph = grimp.build_import_graph(
-            package_names={self.root_package},
-            cache_dir=None,  # Disable grimp's cache, we use our own
-        )
+        with _sys_path_context(parent_path):
+            # Build graph using grimp (always builds full graph)
+            graph = grimp.build_import_graph(
+                package_names={self.root_package},
+                cache_dir=None,  # Disable grimp's cache, we use our own
+            )
 
-        # Update cache for changed modules
-        for module in changed:
-            if module in source_files:
-                source_path = source_files[module]
-                imports = self.get_imports_from_file(source_path)
-                self.cache.update(module, source_path, imports)
-
-        # Update cache for affected modules (re-parse to get current imports)
-        for module in affected:
-            if module in source_files:
-                source_path = source_files[module]
-                imports = self.get_imports_from_file(source_path)
-                self.cache.update(module, source_path, imports)
+        # Update cache for changed and affected modules
+        self._update_cache_for_modules(changed, source_files)
+        self._update_cache_for_modules(affected, source_files)
 
         return graph, to_reanalyze
+
+    def _update_cache_for_modules(
+        self, modules: set[str], source_files: dict[str, Path]
+    ) -> None:
+        """Update cache for a set of modules.
+
+        Args:
+            modules: Set of module names to update
+            source_files: Dictionary mapping module names to file paths
+        """
+        for module in modules:
+            if module in source_files:
+                source_path = source_files[module]
+                imports = self.get_imports_from_file(source_path)
+                self.cache.update(module, source_path, imports)
