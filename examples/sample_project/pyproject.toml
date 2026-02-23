@@ -1,0 +1,64 @@
+[project]
+name = "myproject"
+version = "0.1.0"
+description = "Sample project demonstrating Harness architecture"
+requires-python = ">=3.10"
+
+[tool.harness-linter]
+root-package = "myproject"
+contracts = ["layer", "provider"]
+cache-path = ".harness_cache"
+
+[[tool.harness-linter.layers]]
+name = "types"
+index = 0
+description = "Core type definitions"
+modules = ["myproject.types"]
+
+[[tool.harness-linter.layers]]
+name = "config"
+index = 1
+description = "Configuration management"
+modules = ["myproject.config"]
+
+[[tool.harness-linter.layers]]
+name = "repo"
+index = 2
+description = "Data access layer"
+modules = ["myproject.repo"]
+
+[[tool.harness-linter.layers]]
+name = "service"
+index = 3
+description = "Business logic"
+modules = ["myproject.service"]
+
+[[tool.harness-linter.layers]]
+name = "runtime"
+index = 4
+description = "Runtime layer"
+modules = ["myproject.runtime"]
+
+[[tool.harness-linter.layers]]
+name = "ui"
+index = 5
+description = "User interface"
+modules = ["myproject.ui"]
+
+[[tool.harness-linter.providers]]
+name = "providers"
+description = "Provider package root"
+modules = ["myproject.providers"]
+allowed_layers = ["service", "runtime", "ui"]
+
+[[tool.harness-linter.providers]]
+name = "logging"
+description = "Logging utilities"
+modules = ["myproject.providers.logging"]
+allowed_layers = ["service", "runtime", "ui"]
+
+[[tool.harness-linter.providers]]
+name = "metrics"
+description = "Metrics and monitoring"
+modules = ["myproject.providers.metrics"]
+allowed_layers = ["service", "runtime"]

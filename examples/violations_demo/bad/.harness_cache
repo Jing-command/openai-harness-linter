@@ -1,0 +1,66 @@
+{
+  "version": "1",
+  "fingerprints": {
+    "bad.myproject.providers": {
+      "path": "D:\\ClaudeCode\\examples\\violations_demo\\bad\\myproject\\providers\\__init__.py",
+      "mtime": 1771814154.7773464,
+      "size": 49,
+      "hash": "af0f32c0aecdd5a6"
+    },
+    "bad.myproject": {
+      "path": "D:\\ClaudeCode\\examples\\violations_demo\\bad\\myproject\\__init__.py",
+      "mtime": 1771814154.7559044,
+      "size": 55,
+      "hash": "a9e997d47d605b70"
+    },
+    "bad.myproject.types": {
+      "path": "D:\\ClaudeCode\\examples\\violations_demo\\bad\\myproject\\types\\__init__.py",
+      "mtime": 1771814154.7604134,
+      "size": 109,
+      "hash": "19442c1bc83c3c4c"
+    },
+    "bad.myproject.types.models": {
+      "path": "D:\\ClaudeCode\\examples\\violations_demo\\bad\\myproject\\types\\models.py",
+      "mtime": 1771814154.765306,
+      "size": 492,
+      "hash": "dd74d5c72078cb8b"
+    },
+    "bad.myproject.providers.bad_provider": {
+      "path": "D:\\ClaudeCode\\examples\\violations_demo\\bad\\myproject\\providers\\bad_provider.py",
+      "mtime": 1771814154.7818496,
+      "size": 492,
+      "hash": "f9e72db7c5982bf7"
+    },
+    "bad.myproject.service.utils": {
+      "path": "D:\\ClaudeCode\\examples\\violations_demo\\bad\\myproject\\service\\utils.py",
+      "mtime": 1771814154.7733467,
+      "size": 125,
+      "hash": "b6aca3c858de5bd8"
+    },
+    "bad.myproject.service": {
+      "path": "D:\\ClaudeCode\\examples\\violations_demo\\bad\\myproject\\service\\__init__.py",
+      "mtime": 1771814154.769327,
+      "size": 39,
+      "hash": "7c29774a78320d18"
+    }
+  },
+  "imports": {
+    "bad.myproject.providers": [],
+    "bad.myproject": [],
+    "bad.myproject.types": [],
+    "bad.myproject.types.models": [
+      "myproject.service.utils"
+    ],
+    "bad.myproject.providers.bad_provider": [
+      "myproject.service.utils"
+    ],
+    "bad.myproject.service.utils": [],
+    "bad.myproject.service": []
+  },
+  "imported_by": {
+    "myproject.service.utils": [
+      "bad.myproject.types.models",
+      "bad.myproject.providers.bad_provider"
+    ]
+  }
+}

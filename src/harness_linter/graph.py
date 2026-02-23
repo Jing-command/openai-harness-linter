@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import ast
+import logging
 import sys
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import grimp
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -58,9 +61,8 @@ class ImportGraphBuilder:
         parent_path = str(path.parent)
 
         with _sys_path_context(parent_path):
-            graph = grimp.build_import_graph(
-                package_names={self.root_package},
-                cache_dir=None,  # Disable grimp's cache, we use our own
+            graph = grimp.build_graph(
+                package_name=self.root_package,
             )
         return graph
 
@@ -100,7 +102,8 @@ class ImportGraphBuilder:
         try:
             content = path.read_text(encoding="utf-8")
             tree = ast.parse(content)
-        except (SyntaxError, UnicodeDecodeError):
+        except (SyntaxError, UnicodeDecodeError) as e:
+            logger.warning(f"Failed to parse {path}: {e}")
             return []
 
         imports = []
@@ -160,9 +163,8 @@ class IncrementalImportGraphBuilder(ImportGraphBuilder):
 
         with _sys_path_context(parent_path):
             # Build graph using grimp (always builds full graph)
-            graph = grimp.build_import_graph(
-                package_names={self.root_package},
-                cache_dir=None,  # Disable grimp's cache, we use our own
+            graph = grimp.build_graph(
+                package_name=self.root_package,
             )
 
         # Update cache for changed and affected modules

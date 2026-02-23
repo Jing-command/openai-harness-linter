@@ -1,0 +1,23 @@
+[project]
+name = "violations-demo-good"
+version = "0.1.0"
+description = "Example following architecture rules"
+
+[tool.harness-linter]
+root-package = "myproject"
+contracts = ["layer", "provider"]
+
+[[tool.harness-linter.layers]]
+name = "types"
+index = 0
+modules = ["myproject.types"]
+
+[[tool.harness-linter.layers]]
+name = "service"
+index = 3
+modules = ["myproject.service"]
+
+[[tool.harness-linter.providers]]
+name = "good_provider"
+modules = ["myproject.providers"]
+allowed_layers = ["service"]
