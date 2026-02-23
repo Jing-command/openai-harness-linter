@@ -157,10 +157,9 @@ class ProviderContract(Contract):
             return  # Not importing from a layer, no violation
 
         # Providers should not import from business logic layers
-        # (repo, service, runtime, ui)
-        business_logic_layers = {"repo", "service", "runtime", "ui"}
-
-        if imported_layer.name in business_logic_layers:
+        # Business logic layers are those with index >= 2
+        # (typically repo, service, runtime, ui)
+        if imported_layer.index >= 2:
             violation = Violation(
                 importer=importer_module,
                 imported=imported_module,
