@@ -143,13 +143,22 @@ class IncrementalImportGraphBuilder(ImportGraphBuilder):
 
         Uses the cache to determine which files need re-analysis.
 
+        Note:
+            Currently, this method still builds the full import graph using grimp,
+            but only updates the cache for changed and affected modules. True
+            incremental graph building (where unchanged modules are loaded from
+            cache) is not yet implemented due to grimp library limitations.
+
+            The main benefit currently is avoiding contract re-checking for
+            unchanged modules in a future optimization.
+
         Args:
             path: Path to the package directory
             source_files: Dictionary mapping module names to file paths
 
         Returns:
             Tuple of (import_graph, reanalyzed_modules)
-            import_graph: The built import graph
+            import_graph: The built import graph (full graph)
             reanalyzed_modules: Set of modules that were re-analyzed
         """
         # Find changed modules and affected modules
