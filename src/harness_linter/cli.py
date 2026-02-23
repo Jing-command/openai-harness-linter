@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -503,12 +504,27 @@ def _run_structural_tests(
 
     # Define layer resolver
     def resolve_layer(file_path: Path) -> str | None:
-        """Resolve layer from file path."""
-        path_str = str(file_path)
-        for layer in layer_registry:
-            if layer.name in path_str:
-                return layer.name
-        return None
+        """Resolve layer from file path.
+
+        Converts the file path to a module path and uses the registry's
+        get_layer_for_module method for accurate layer resolution.
+        """
+        # Convert file path to module path
+        # e.g., "myproject/types/models.py" -> "myproject.types.models"
+        try:
+            # Find the relative path from the package root
+            rel_path = file_path.relative_to(path)
+            # Remove .py extension and convert separators
+            module_path = str(rel_path.with_suffix("")).replace(os.sep, ".")
+            # Handle __init__.py files
+            if module_path.endswith(".__init__"):
+                module_path = module_path[:-9]  # Remove .__init__
+
+            layer = layer_registry.get_layer_for_module(module_path)
+            return layer.name if layer else None
+        except ValueError:
+            # File is not under the package path
+            return None
 
     # Run file size checks
     if verbose:
