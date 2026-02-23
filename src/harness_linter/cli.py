@@ -14,6 +14,7 @@ from harness_linter.contracts.provider_contract import ProviderContract
 from harness_linter.graph import ImportGraphBuilder, IncrementalImportGraphBuilder
 from harness_linter.layers import Layer, LayerRegistry
 from harness_linter.providers import Provider, ProviderRegistry
+from harness_linter.formatters.rust_style import RustStyleFormatter
 from harness_linter.structural.base import StructuralViolation
 from harness_linter.structural.file_size import FileSizeCheck, FileSizeConfig
 from harness_linter.structural.naming import NamingCheck, NamingConfig
@@ -38,6 +39,13 @@ from harness_linter.structural.naming import NamingCheck, NamingConfig
     is_flag=True,
     help="Enable structural tests (file size, naming conventions)"
 )
+@click.option(
+    "--format",
+    "format_style",
+    type=click.Choice(["default", "rust"]),
+    default="default",
+    help="Output format style"
+)
 def main(
     path: Path | None,
     package: str | None,
@@ -46,6 +54,7 @@ def main(
     cache_path: Path | None,
     config: Path | None,
     structural: bool,
+    format_style: str,
 ) -> int:
     """Analyze import graph for a Python package.
 
@@ -72,9 +81,9 @@ def main(
             cache_path = Path(cfg.cache_path)
 
         if incremental:
-            return _run_incremental(path, cfg, verbose, cache_path, structural)
+            return _run_incremental(path, cfg, verbose, cache_path, structural, format_style)
         else:
-            return _run_full(path, cfg, verbose, structural)
+            return _run_full(path, cfg, verbose, structural, format_style)
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         return 1
@@ -123,7 +132,7 @@ def _load_configuration(
     return None
 
 
-def _run_full(path: Path, config: Config, verbose: bool, structural: bool = False) -> int:
+def _run_full(path: Path, config: Config, verbose: bool, structural: bool = False, format_style: str = "default") -> int:
     """Run full analysis without caching."""
     builder = ImportGraphBuilder(config.root_package)
 
@@ -140,44 +149,61 @@ def _run_full(path: Path, config: Config, verbose: bool, structural: bool = Fals
     layer_registry = _build_layer_registry(config)
     provider_registry = _build_provider_registry(config)
 
+    # Initialize formatter if needed
+    formatter = RustStyleFormatter() if format_style == "rust" else None
+
     # Run contracts
     violations_found = False
+    all_violations = []
 
     if "layer" in config.contracts:
         if verbose:
             click.echo("Checking layer dependencies...")
         layer_contract = LayerContract(layer_registry)
         result = layer_contract.check(graph)
-        _print_contract_result(result, verbose)
+        _print_contract_result(result, verbose, formatter, path)
         if not result.is_valid:
             violations_found = True
+            all_violations.extend(result.violations)
 
     if "provider" in config.contracts:
         if verbose:
             click.echo("Checking provider usage...")
         provider_contract = ProviderContract(layer_registry, provider_registry)
         result = provider_contract.check(graph)
-        _print_contract_result(result, verbose)
+        _print_contract_result(result, verbose, formatter, path)
         if not result.is_valid:
             violations_found = True
+            all_violations.extend(result.violations)
 
     # Run structural tests if enabled
+    structural_violations: list[StructuralViolation] = []
     if structural:
         if verbose:
             click.echo("Running structural tests...")
-        structural_violations = _run_structural_tests(path, layer_registry, verbose)
+        structural_violations = _run_structural_tests(path, layer_registry, verbose, formatter)
         if structural_violations:
             violations_found = True
 
     # Summary
-    click.echo(f"\nTotal modules: {len(modules)}")
-
-    if violations_found:
-        click.echo("Violations found!")
-        return 1
+    if format_style == "rust":
+        # Calculate duration (placeholder since we don't track it yet)
+        duration_ms = 0.0
+        summary = formatter.format_summary(
+            total_violations=len(all_violations) + len(structural_violations),
+            analyzed_modules=len(modules),
+            duration_ms=duration_ms,
+        )
+        click.echo(summary)
     else:
-        click.echo("No violations found.")
-        return 0
+        click.echo(f"\nTotal modules: {len(modules)}")
+
+        if violations_found:
+            click.echo("Violations found!")
+        else:
+            click.echo("No violations found.")
+
+    return 1 if violations_found else 0
 
 
 def _build_layer_registry(config: Config) -> LayerRegistry:
@@ -230,24 +256,44 @@ def _build_provider_registry(config: Config) -> ProviderRegistry:
     return registry
 
 
-def _print_contract_result(result, verbose: bool) -> None:
+def _print_contract_result(result, verbose: bool, formatter: RustStyleFormatter | None = None, base_path: Path | None = None) -> None:
     """Print contract check results.
 
     Args:
         result: The ContractResult to print
         verbose: Whether to show verbose output
+        formatter: Optional RustStyleFormatter for rust-style output
+        base_path: Base path for resolving source files
     """
     if result.is_valid:
         if verbose:
             click.echo(f"  {result.contract_name}: OK")
-    else:
+        return
+
+    if formatter is None:
+        # Default format
         click.echo(f"  {result.contract_name}: FAILED")
         for violation in result.violations:
             click.echo(f"    - {violation}")
+    else:
+        # Rust-style format
+        for violation in result.violations:
+            # Try to find source file
+            source_file = None
+            if base_path:
+                # Convert module path to file path
+                module_path = violation.importer.replace(".", "/") + ".py"
+                potential_file = base_path / module_path
+                if potential_file.exists():
+                    source_file = potential_file
+
+            formatted = formatter.format_violation(violation, source_file=source_file)
+            click.echo(formatted)
+            click.echo()  # Empty line between violations
 
 
 def _run_incremental(
-    path: Path, config: Config, verbose: bool, cache_path: Path, structural: bool = False
+    path: Path, config: Config, verbose: bool, cache_path: Path, structural: bool = False, format_style: str = "default"
 ) -> int:
     """Run incremental analysis using cache."""
     cache = ImportGraphCache(cache_path)
@@ -287,48 +333,65 @@ def _run_incremental(
     layer_registry = _build_layer_registry(config)
     provider_registry = _build_provider_registry(config)
 
+    # Initialize formatter if needed
+    formatter = RustStyleFormatter() if format_style == "rust" else None
+
     # Run contracts
     violations_found = False
+    all_violations = []
 
     if "layer" in config.contracts:
         if verbose:
             click.echo("Checking layer dependencies...")
         layer_contract = LayerContract(layer_registry)
         result = layer_contract.check(graph)
-        _print_contract_result(result, verbose)
+        _print_contract_result(result, verbose, formatter, path)
         if not result.is_valid:
             violations_found = True
+            all_violations.extend(result.violations)
 
     if "provider" in config.contracts:
         if verbose:
             click.echo("Checking provider usage...")
         provider_contract = ProviderContract(layer_registry, provider_registry)
         result = provider_contract.check(graph)
-        _print_contract_result(result, verbose)
+        _print_contract_result(result, verbose, formatter, path)
         if not result.is_valid:
             violations_found = True
+            all_violations.extend(result.violations)
 
     # Run structural tests if enabled
+    structural_violations: list[StructuralViolation] = []
     if structural:
         if verbose:
             click.echo("Running structural tests...")
-        structural_violations = _run_structural_tests(path, layer_registry, verbose)
+        structural_violations = _run_structural_tests(path, layer_registry, verbose, formatter)
         if structural_violations:
             violations_found = True
 
     # Summary
-    click.echo(f"\nTotal modules: {len(modules)}")
-
-    if violations_found:
-        click.echo("Violations found!")
-        return 1
+    if format_style == "rust":
+        # Calculate duration (placeholder since we don't track it yet)
+        duration_ms = 0.0
+        summary = formatter.format_summary(
+            total_violations=len(all_violations) + len(structural_violations),
+            analyzed_modules=len(modules),
+            duration_ms=duration_ms,
+        )
+        click.echo(summary)
     else:
-        click.echo("No violations found.")
-        return 0
+        click.echo(f"\nTotal modules: {len(modules)}")
+
+        if violations_found:
+            click.echo("Violations found!")
+        else:
+            click.echo("No violations found.")
+
+    return 1 if violations_found else 0
 
 
 def _run_structural_tests(
-    path: Path, layer_registry: LayerRegistry, verbose: bool
+    path: Path, layer_registry: LayerRegistry, verbose: bool, formatter: RustStyleFormatter | None = None
 ) -> list[StructuralViolation]:
     """Run structural tests on source files.
 
@@ -336,6 +399,7 @@ def _run_structural_tests(
         path: Path to the project
         layer_registry: Layer registry for layer resolution
         verbose: Whether to show verbose output
+        formatter: Optional RustStyleFormatter for rust-style output
 
     Returns:
         List of structural violations found
@@ -375,12 +439,30 @@ def _run_structural_tests(
 
     # Print violations
     if all_violations:
-        click.echo("  Structural: FAILED")
-        for violation in all_violations:
-            line_info = f":{violation.line_number}" if violation.line_number else ""
-            click.echo(f"    - {violation.file_path}{line_info}: {violation.message}")
-            if violation.suggestion:
-                click.echo(f"      Suggestion: {violation.suggestion}")
+        if formatter is None:
+            # Default format
+            click.echo("  Structural: FAILED")
+            for violation in all_violations:
+                line_info = f":{violation.line_number}" if violation.line_number else ""
+                click.echo(f"    - {violation.file_path}{line_info}: {violation.message}")
+                if violation.suggestion:
+                    click.echo(f"      Suggestion: {violation.suggestion}")
+        else:
+            # Rust-style format for structural violations
+            for violation in all_violations:
+                # Convert structural violation to a format compatible with RustStyleFormatter
+                from harness_linter.contracts.base import Violation
+                sv = Violation(
+                    importer=str(violation.file_path),
+                    imported="structural",
+                    message=violation.message,
+                    line_number=violation.line_number,
+                )
+                formatted = formatter.format_violation(sv, source_file=violation.file_path)
+                click.echo(formatted)
+                if violation.suggestion:
+                    click.echo(f"   = suggestion: {violation.suggestion}")
+                click.echo()
     else:
         if verbose:
             click.echo("  Structural: OK")
