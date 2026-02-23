@@ -10,13 +10,13 @@ from harness_linter.structural.base import StructuralCheck, StructuralViolation
 
 @dataclass
 class FileSizeConfig:
-    """文件大小检查配置"""
+    """Configuration for file size checks."""
     max_lines: int = 500
     max_blank_lines_ratio: float = 0.3
 
 
 class FileSizeCheck(StructuralCheck):
-    """检查文件大小限制"""
+    """Check file size limits."""
 
     def __init__(self, config: FileSizeConfig | None = None):
         super().__init__("file-size")

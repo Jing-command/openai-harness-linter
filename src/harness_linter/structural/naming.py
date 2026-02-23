@@ -11,19 +11,19 @@ from harness_linter.structural.base import StructuralCheck, StructuralViolation
 
 @dataclass
 class LayerNamingRules:
-    """层的命名规则"""
+    """Naming rules for a layer."""
     class_suffixes: list[str] = field(default_factory=list)
     function_prefixes: list[str] = field(default_factory=list)
 
 
 @dataclass
 class NamingConfig:
-    """命名约定配置"""
+    """Configuration for naming convention checks."""
     layer_patterns: dict[str, LayerNamingRules] = field(default_factory=dict)
 
 
 class NamingCheck(StructuralCheck):
-    """检查命名约定"""
+    """Check naming conventions."""
 
     def __init__(self, config: NamingConfig | None = None):
         super().__init__("naming")

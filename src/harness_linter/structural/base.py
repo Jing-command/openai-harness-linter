@@ -10,7 +10,7 @@ from typing import Optional
 
 @dataclass(frozen=True)
 class StructuralViolation:
-    """结构规则违规"""
+    """Violation of a structural rule."""
     check_name: str
     message: str
     file_path: Path
@@ -19,14 +19,14 @@ class StructuralViolation:
 
 
 class StructuralCheck(ABC):
-    """结构测试抽象基类"""
+    """Abstract base class for structural checks."""
 
     def __init__(self, name: str):
         self.name = name
 
     @abstractmethod
     def check_file(self, file_path: Path, **context) -> list[StructuralViolation]:
-        """检查单个文件"""
+        """Check a single file."""
         pass
 
     def check_project(
@@ -34,7 +34,7 @@ class StructuralCheck(ABC):
         source_files: list[Path],
         layer_resolver: Optional[callable] = None
     ) -> list[StructuralViolation]:
-        """检查整个项目"""
+        """Check the entire project."""
         all_violations: list[StructuralViolation] = []
 
         for file_path in source_files:
