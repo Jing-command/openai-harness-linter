@@ -15,6 +15,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["FileFingerprint", "ImportGraphCache"]
+
 
 @dataclass
 class FileFingerprint:

@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+__all__ = ["Provider", "ProviderRegistry"]
+
 
 @dataclass(frozen=True)
 class Provider:
