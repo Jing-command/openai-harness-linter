@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 import click
@@ -142,6 +143,8 @@ def _load_configuration(
 
 def _run_full(path: Path, config: Config, verbose: bool, structural: bool = False, format_style: str = "default", agent_mode: bool = False) -> int:
     """Run full analysis without caching."""
+    start_time = time.perf_counter()
+
     builder = ImportGraphBuilder(config.root_package)
 
     if verbose and not agent_mode:
@@ -200,8 +203,8 @@ def _run_full(path: Path, config: Config, verbose: bool, structural: bool = Fals
         # Format for agent consumption
         _print_agent_mode_output(all_violations, layer_registry, provider_registry, len(modules))
     elif format_style == "rust":
-        # Calculate duration (placeholder since we don't track it yet)
-        duration_ms = 0.0
+        # Calculate duration using actual elapsed time
+        duration_ms = (time.perf_counter() - start_time) * 1000
         summary = formatter.format_summary(
             total_violations=len(all_violations) + len(structural_violations),
             analyzed_modules=len(modules),
@@ -309,6 +312,8 @@ def _run_incremental(
     path: Path, config: Config, verbose: bool, cache_path: Path, structural: bool = False, format_style: str = "default", agent_mode: bool = False
 ) -> int:
     """Run incremental analysis using cache."""
+    start_time = time.perf_counter()
+
     cache = ImportGraphCache(cache_path)
 
     # Load existing cache if available
@@ -389,8 +394,8 @@ def _run_incremental(
         # Format for agent consumption
         _print_agent_mode_output(all_violations, layer_registry, provider_registry, len(modules))
     elif format_style == "rust":
-        # Calculate duration (placeholder since we don't track it yet)
-        duration_ms = 0.0
+        # Calculate duration using actual elapsed time
+        duration_ms = (time.perf_counter() - start_time) * 1000
         summary = formatter.format_summary(
             total_violations=len(all_violations) + len(structural_violations),
             analyzed_modules=len(modules),
