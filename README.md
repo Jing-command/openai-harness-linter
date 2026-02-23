@@ -19,6 +19,8 @@ Harness Linter is a Python architecture linter that enforces a strict 6-layer de
 
 ## Installation
 
+### As a Python Package
+
 ```bash
 pip install harness-linter
 ```
@@ -29,6 +31,36 @@ Or install from source:
 git clone https://github.com/your-org/harness-linter.git
 cd harness-linter
 pip install -e ".[dev]"
+```
+
+### As a Claude Code Skill (Recommended)
+
+This linter is available as a Claude Code skill for automatic architecture enforcement:
+
+```bash
+# Install the skill
+claude /skill install harness-linter
+
+# Or add to your project's CLAUDE.md
+```
+
+**Available Skills:**
+
+| Skill | Description | Usage |
+|-------|-------------|-------|
+| `harness-linter:check` | Run architecture check on current project | `/check` |
+| `harness-linter:init` | Initialize linter config for a new project | `/init-project` |
+| `harness-linter:batch` | Batch check multiple projects | `/batch-check` |
+
+**Skill Configuration in CLAUDE.md:**
+
+```markdown
+## Skills
+
+- harness-linter:check
+  - auto_run: true
+  - on_save: true
+  - contracts: ["layer", "provider"]
 ```
 
 ## Quick Start
