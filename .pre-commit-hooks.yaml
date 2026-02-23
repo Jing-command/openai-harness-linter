@@ -1,0 +1,16 @@
+- id: harness-lint
+  name: Harness Architecture Linter
+  description: Enforce OpenAI Harness-style architecture rules
+  entry: harness-lint
+  language: python
+  types: [python]
+  require_serial: true
+  additional_dependencies: []
+
+- id: harness-lint-strict
+  name: Harness Architecture Linter (Strict)
+  description: Enforce architecture rules with structural tests
+  entry: harness-lint --structural
+  language: python
+  types: [python]
+  require_serial: true

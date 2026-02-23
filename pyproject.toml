@@ -1,16 +1,28 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
 name = "harness-linter"
 version = "0.1.0"
-description = "OpenAI Harness Linter - A performance-focused import graph analyzer"
+description = "A performance-focused import graph analyzer enforcing strict layered architecture"
 readme = "README.md"
 requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "OpenAI Harness Team"}
+]
+keywords = ["linter", "architecture", "imports", "layering", "harness"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = [
     "grimp>=3.0",
     "click>=8.0",
+    "tomli>=2.0; python_version<'3.11'",
 ]
 
 [project.optional-dependencies]
@@ -19,24 +31,59 @@ dev = [
     "pytest-cov>=4.0",
     "mypy>=1.0",
     "ruff>=0.1.0",
+    "pre-commit>=3.0",
 ]
 
 [project.scripts]
-harness-linter = "harness_linter.cli:main"
+harness-lint = "harness_linter.cli:main"
+harness-pre-commit = "harness_linter.hooks:run_pre_commit"
+
+[project.entry-points."harness_linter.contracts"]
+layer = "harness_linter.contracts.layer_contract:LayerContract"
+provider = "harness_linter.contracts.provider_contract:ProviderContract"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
 
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
 
 [tool.ruff]
-line-length = 100
 target-version = "py310"
+line-length = 100
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "W",   # pycodestyle warnings
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+]
 
-[tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
+[tool.ruff.pydocstyle]
+convention = "google"
