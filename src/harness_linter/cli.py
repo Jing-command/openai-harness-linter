@@ -164,30 +164,9 @@ def _run_full(path: Path, config: Config, verbose: bool, structural: bool = Fals
     formatter = RustStyleFormatter() if format_style == "rust" and not agent_mode else None
 
     # Run contracts
-    violations_found = False
-    all_violations = []
-
-    if "layer" in config.contracts:
-        if verbose and not agent_mode:
-            click.echo("Checking layer dependencies...")
-        layer_contract = LayerContract(layer_registry)
-        result = layer_contract.check(graph)
-        if not agent_mode:
-            _print_contract_result(result, verbose, formatter, path)
-        if not result.is_valid:
-            violations_found = True
-            all_violations.extend(result.violations)
-
-    if "provider" in config.contracts:
-        if verbose and not agent_mode:
-            click.echo("Checking provider usage...")
-        provider_contract = ProviderContract(layer_registry, provider_registry)
-        result = provider_contract.check(graph)
-        if not agent_mode:
-            _print_contract_result(result, verbose, formatter, path)
-        if not result.is_valid:
-            violations_found = True
-            all_violations.extend(result.violations)
+    violations_found, all_violations = _run_contracts(
+        graph, config, layer_registry, provider_registry, verbose, agent_mode, formatter, path
+    )
 
     # Run structural tests if enabled
     structural_violations: list[StructuralViolation] = []
@@ -220,6 +199,59 @@ def _run_full(path: Path, config: Config, verbose: bool, structural: bool = Fals
             click.echo("No violations found.")
 
     return 1 if violations_found else 0
+
+
+def _run_contracts(
+    graph,
+    config: Config,
+    layer_registry: LayerRegistry,
+    provider_registry: ProviderRegistry,
+    verbose: bool,
+    agent_mode: bool,
+    formatter: RustStyleFormatter | None,
+    path: Path,
+) -> tuple[bool, list]:
+    """Run all enabled contracts and return results.
+
+    Args:
+        graph: The import graph to check
+        config: Configuration with enabled contracts
+        layer_registry: Layer registry for layer contract
+        provider_registry: Provider registry for provider contract
+        verbose: Whether to print verbose output
+        agent_mode: Whether running in agent mode
+        formatter: Formatter for output (if rust style)
+        path: Project path for source lookup
+
+    Returns:
+        Tuple of (violations_found, all_violations)
+    """
+    violations_found = False
+    all_violations = []
+
+    if "layer" in config.contracts:
+        if verbose and not agent_mode:
+            click.echo("Checking layer dependencies...")
+        layer_contract = LayerContract(layer_registry)
+        result = layer_contract.check(graph)
+        if not agent_mode:
+            _print_contract_result(result, verbose, formatter, path)
+        if not result.is_valid:
+            violations_found = True
+            all_violations.extend(result.violations)
+
+    if "provider" in config.contracts:
+        if verbose and not agent_mode:
+            click.echo("Checking provider usage...")
+        provider_contract = ProviderContract(layer_registry, provider_registry)
+        result = provider_contract.check(graph)
+        if not agent_mode:
+            _print_contract_result(result, verbose, formatter, path)
+        if not result.is_valid:
+            violations_found = True
+            all_violations.extend(result.violations)
+
+    return violations_found, all_violations
 
 
 def _build_layer_registry(config: Config) -> LayerRegistry:
@@ -355,30 +387,9 @@ def _run_incremental(
     formatter = RustStyleFormatter() if format_style == "rust" and not agent_mode else None
 
     # Run contracts
-    violations_found = False
-    all_violations = []
-
-    if "layer" in config.contracts:
-        if verbose and not agent_mode:
-            click.echo("Checking layer dependencies...")
-        layer_contract = LayerContract(layer_registry)
-        result = layer_contract.check(graph)
-        if not agent_mode:
-            _print_contract_result(result, verbose, formatter, path)
-        if not result.is_valid:
-            violations_found = True
-            all_violations.extend(result.violations)
-
-    if "provider" in config.contracts:
-        if verbose and not agent_mode:
-            click.echo("Checking provider usage...")
-        provider_contract = ProviderContract(layer_registry, provider_registry)
-        result = provider_contract.check(graph)
-        if not agent_mode:
-            _print_contract_result(result, verbose, formatter, path)
-        if not result.is_valid:
-            violations_found = True
-            all_violations.extend(result.violations)
+    violations_found, all_violations = _run_contracts(
+        graph, config, layer_registry, provider_registry, verbose, agent_mode, formatter, path
+    )
 
     # Run structural tests if enabled
     structural_violations: list[StructuralViolation] = []
