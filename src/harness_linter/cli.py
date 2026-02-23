@@ -15,6 +15,7 @@ from harness_linter.graph import ImportGraphBuilder, IncrementalImportGraphBuild
 from harness_linter.layers import Layer, LayerRegistry
 from harness_linter.providers import Provider, ProviderRegistry
 from harness_linter.formatters.rust_style import RustStyleFormatter
+from harness_linter.agent_context import AgentContextFormatter, ViolationContext
 from harness_linter.structural.base import StructuralViolation
 from harness_linter.structural.file_size import FileSizeCheck, FileSizeConfig
 from harness_linter.structural.naming import NamingCheck, NamingConfig
@@ -46,6 +47,11 @@ from harness_linter.structural.naming import NamingCheck, NamingConfig
     default="default",
     help="Output format style"
 )
+@click.option(
+    "--agent-mode",
+    is_flag=True,
+    help="Output in LLM-friendly format for AI agents"
+)
 def main(
     path: Path | None,
     package: str | None,
@@ -55,6 +61,7 @@ def main(
     config: Path | None,
     structural: bool,
     format_style: str,
+    agent_mode: bool,
 ) -> int:
     """Analyze import graph for a Python package.
 
@@ -81,9 +88,9 @@ def main(
             cache_path = Path(cfg.cache_path)
 
         if incremental:
-            return _run_incremental(path, cfg, verbose, cache_path, structural, format_style)
+            return _run_incremental(path, cfg, verbose, cache_path, structural, format_style, agent_mode)
         else:
-            return _run_full(path, cfg, verbose, structural, format_style)
+            return _run_full(path, cfg, verbose, structural, format_style, agent_mode)
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         return 1
@@ -132,17 +139,17 @@ def _load_configuration(
     return None
 
 
-def _run_full(path: Path, config: Config, verbose: bool, structural: bool = False, format_style: str = "default") -> int:
+def _run_full(path: Path, config: Config, verbose: bool, structural: bool = False, format_style: str = "default", agent_mode: bool = False) -> int:
     """Run full analysis without caching."""
     builder = ImportGraphBuilder(config.root_package)
 
-    if verbose:
+    if verbose and not agent_mode:
         click.echo(f"Building import graph for {config.root_package} from {path}")
 
     graph = builder.build_from_path(path)
     modules = graph.modules
 
-    if verbose:
+    if verbose and not agent_mode:
         click.echo(f"Found {len(modules)} modules")
 
     # Set up registries from config
@@ -150,28 +157,30 @@ def _run_full(path: Path, config: Config, verbose: bool, structural: bool = Fals
     provider_registry = _build_provider_registry(config)
 
     # Initialize formatter if needed
-    formatter = RustStyleFormatter() if format_style == "rust" else None
+    formatter = RustStyleFormatter() if format_style == "rust" and not agent_mode else None
 
     # Run contracts
     violations_found = False
     all_violations = []
 
     if "layer" in config.contracts:
-        if verbose:
+        if verbose and not agent_mode:
             click.echo("Checking layer dependencies...")
         layer_contract = LayerContract(layer_registry)
         result = layer_contract.check(graph)
-        _print_contract_result(result, verbose, formatter, path)
+        if not agent_mode:
+            _print_contract_result(result, verbose, formatter, path)
         if not result.is_valid:
             violations_found = True
             all_violations.extend(result.violations)
 
     if "provider" in config.contracts:
-        if verbose:
+        if verbose and not agent_mode:
             click.echo("Checking provider usage...")
         provider_contract = ProviderContract(layer_registry, provider_registry)
         result = provider_contract.check(graph)
-        _print_contract_result(result, verbose, formatter, path)
+        if not agent_mode:
+            _print_contract_result(result, verbose, formatter, path)
         if not result.is_valid:
             violations_found = True
             all_violations.extend(result.violations)
@@ -179,14 +188,17 @@ def _run_full(path: Path, config: Config, verbose: bool, structural: bool = Fals
     # Run structural tests if enabled
     structural_violations: list[StructuralViolation] = []
     if structural:
-        if verbose:
+        if verbose and not agent_mode:
             click.echo("Running structural tests...")
         structural_violations = _run_structural_tests(path, layer_registry, verbose, formatter)
         if structural_violations:
             violations_found = True
 
-    # Summary
-    if format_style == "rust":
+    # Output results
+    if agent_mode:
+        # Format for agent consumption
+        _print_agent_mode_output(all_violations, layer_registry, provider_registry, len(modules))
+    elif format_style == "rust":
         # Calculate duration (placeholder since we don't track it yet)
         duration_ms = 0.0
         summary = formatter.format_summary(
@@ -293,7 +305,7 @@ def _print_contract_result(result, verbose: bool, formatter: RustStyleFormatter 
 
 
 def _run_incremental(
-    path: Path, config: Config, verbose: bool, cache_path: Path, structural: bool = False, format_style: str = "default"
+    path: Path, config: Config, verbose: bool, cache_path: Path, structural: bool = False, format_style: str = "default", agent_mode: bool = False
 ) -> int:
     """Run incremental analysis using cache."""
     cache = ImportGraphCache(cache_path)
@@ -301,7 +313,7 @@ def _run_incremental(
     # Load existing cache if available
     cache_loaded = cache.load()
 
-    if verbose:
+    if verbose and not agent_mode:
         click.echo(f"Building import graph for {config.root_package} from {path}")
         if cache_loaded:
             click.echo(f"Loaded cache from {cache_path}")
@@ -312,21 +324,21 @@ def _run_incremental(
     builder = IncrementalImportGraphBuilder(config.root_package, cache)
     source_files = builder.find_source_files(path)
 
-    if verbose:
+    if verbose and not agent_mode:
         click.echo(f"Found {len(source_files)} source files")
 
     # Build graph incrementally
     graph, reanalyzed = builder.build_from_path_incremental(path, source_files)
     modules = graph.modules
 
-    if verbose:
+    if verbose and not agent_mode:
         click.echo(f"Found {len(modules)} modules")
         click.echo(f"Re-analyzed {len(reanalyzed)} modules")
 
     # Save cache
     cache.save()
 
-    if verbose:
+    if verbose and not agent_mode:
         click.echo(f"Saved cache to {cache_path}")
 
     # Set up registries from config
@@ -334,28 +346,30 @@ def _run_incremental(
     provider_registry = _build_provider_registry(config)
 
     # Initialize formatter if needed
-    formatter = RustStyleFormatter() if format_style == "rust" else None
+    formatter = RustStyleFormatter() if format_style == "rust" and not agent_mode else None
 
     # Run contracts
     violations_found = False
     all_violations = []
 
     if "layer" in config.contracts:
-        if verbose:
+        if verbose and not agent_mode:
             click.echo("Checking layer dependencies...")
         layer_contract = LayerContract(layer_registry)
         result = layer_contract.check(graph)
-        _print_contract_result(result, verbose, formatter, path)
+        if not agent_mode:
+            _print_contract_result(result, verbose, formatter, path)
         if not result.is_valid:
             violations_found = True
             all_violations.extend(result.violations)
 
     if "provider" in config.contracts:
-        if verbose:
+        if verbose and not agent_mode:
             click.echo("Checking provider usage...")
         provider_contract = ProviderContract(layer_registry, provider_registry)
         result = provider_contract.check(graph)
-        _print_contract_result(result, verbose, formatter, path)
+        if not agent_mode:
+            _print_contract_result(result, verbose, formatter, path)
         if not result.is_valid:
             violations_found = True
             all_violations.extend(result.violations)
@@ -363,14 +377,17 @@ def _run_incremental(
     # Run structural tests if enabled
     structural_violations: list[StructuralViolation] = []
     if structural:
-        if verbose:
+        if verbose and not agent_mode:
             click.echo("Running structural tests...")
         structural_violations = _run_structural_tests(path, layer_registry, verbose, formatter)
         if structural_violations:
             violations_found = True
 
-    # Summary
-    if format_style == "rust":
+    # Output results
+    if agent_mode:
+        # Format for agent consumption
+        _print_agent_mode_output(all_violations, layer_registry, provider_registry, len(modules))
+    elif format_style == "rust":
         # Calculate duration (placeholder since we don't track it yet)
         duration_ms = 0.0
         summary = formatter.format_summary(
@@ -388,6 +405,77 @@ def _run_incremental(
             click.echo("No violations found.")
 
     return 1 if violations_found else 0
+
+
+def _print_agent_mode_output(
+    violations: list,
+    layer_registry: LayerRegistry,
+    provider_registry: ProviderRegistry,
+    total_modules: int,
+) -> None:
+    """Print violations in agent-friendly format.
+
+    Args:
+        violations: List of violations to format
+        layer_registry: Layer registry for layer lookup
+        provider_registry: Provider registry for provider lookup
+        total_modules: Total number of modules analyzed
+    """
+    formatter = AgentContextFormatter()
+    contexts = []
+
+    # Categorize violations
+    violation_types: dict[str, int] = {}
+
+    for violation in violations:
+        # Determine layers
+        importer_layer = layer_registry.get_layer_for_module(violation.importer)
+        imported_layer = layer_registry.get_layer_for_module(violation.imported)
+
+        layer_importer = importer_layer.name if importer_layer else "unknown"
+        layer_imported = imported_layer.name if imported_layer else "unknown"
+
+        # Check if it's a provider-related violation
+        is_provider_violation = (
+            provider_registry.is_provider_module(violation.imported)
+            or provider_registry.is_provider_module(violation.importer)
+            or "provider" in violation.message.lower()
+        )
+
+        if is_provider_violation:
+            severity = "warning"
+            principle = "Providers should only be used by specific layers to avoid coupling"
+            suggested_fix = "Check if layer really needs this provider, or refactor to avoid the dependency"
+            violation_type = "provider_misuse"
+        else:
+            severity = "error"
+            principle = "Dependencies flow forward through layers (lower layers are more fundamental)"
+            suggested_fix = f"Extract shared interface to {layer_importer} layer or move code to a common lower layer"
+            violation_type = "backward_dependency"
+
+        # Count violation types
+        violation_types[violation_type] = violation_types.get(violation_type, 0) + 1
+
+        context = ViolationContext(
+            violation=violation,
+            layer_importer=layer_importer,
+            layer_imported=layer_imported,
+            severity=severity,
+            architectural_principle=principle,
+            suggested_fix=suggested_fix,
+        )
+        contexts.append(context)
+
+    # Build project stats
+    project_stats = {
+        "total_modules": total_modules,
+        "total_violations": len(violations),
+        "violation_types": violation_types,
+    }
+
+    # Format and print
+    output = formatter.format_batch_for_agent(contexts, project_stats)
+    click.echo(output)
 
 
 def _run_structural_tests(
